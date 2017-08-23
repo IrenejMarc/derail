@@ -1,6 +1,6 @@
 module derail.core.application;
 
-import derail.router;
+import derail.core.router;
 
 class Application
 {

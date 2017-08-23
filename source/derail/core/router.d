@@ -1,11 +1,11 @@
-module derail.router;
+module derail.core.router;
 
 import std.string;
 
 import vibe.http.router : URLRouter;
 import vibe.http.server;
 
-import derail.controller;
+import derail.app.controller;
 import derail.core.http;
 
 class Router
@@ -80,10 +80,15 @@ auto makeResourceRequestHandler(string action, ControllerT : Controller)()
 {
 	void handle(HTTPServerRequest req, HTTPServerResponse res)
 	{
+		auto params = dictionaryToAA(req.params);
+
 		auto controller = new ControllerT;
-		auto request = Request(req);
-		auto response = Response(res);
-		mixin(q{controller.%s(request, response);}.format(action));
+		controller.action = action;
+		controller.params = params;
+		controller.request = Request(req);
+		controller.response = Response(res);
+
+		mixin(q{controller.%s();}.format(action));
 	}
 
 	return &handle;
@@ -97,4 +102,16 @@ auto makeRequestHandler(Handler)(Handler handler)
 	}
 
 	return &requestHandler;
+}
+
+string[string] dictionaryToAA(T)(T dictionary)
+{
+	string[string] result;
+
+	foreach (key, value; dictionary.byKeyValue)
+	{
+		result[key] = value;
+	}
+
+	return result;
 }
