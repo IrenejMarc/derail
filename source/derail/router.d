@@ -50,7 +50,7 @@ class Router
 
 	Router resource(string resourceName)()
 	{
-		mixin("import controllers.%s;".format(resourceName));
+		mixin(q{import controllers.%s;}.format(resourceName));
 		resource!(mixin(resourceName.capitalize ~ "Controller"))("/" ~ resourceName ~ "/");
 
 		return this;
