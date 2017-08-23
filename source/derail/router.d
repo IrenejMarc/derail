@@ -1,5 +1,7 @@
 module derail.router;
 
+import std.string;
+
 import vibe.http.router : URLRouter;
 import vibe.http.server;
 
@@ -20,12 +22,36 @@ class Router
 
 	@property auto routes()
 	{
-		vibeRouter.getAllRoutes();
+		return vibeRouter.getAllRoutes();
 	}
 
 	Router get(Handler)(string path, Handler handler)
 	{
 		vibeRouter.get(path, makeRequestHandler(handler));
+
+		return this;
+	}
+
+	Router resource(ControllerT : Controller)(string pathPrefix)
+	{
+		import std.traits : hasMember;
+		string memberPath = joinPath([pathPrefix.normalizePath, ":id"]);
+
+		static if (hasMember!(ControllerT, "index"))
+			vibeRouter.get(pathPrefix, makeResourceRequestHandler!("index", ControllerT));
+
+		static if (hasMember!(ControllerT, "show"))
+		{
+			vibeRouter.get(memberPath, makeResourceRequestHandler!("show", ControllerT));
+		}
+
+		return this;
+	}
+
+	Router resource(string resourceName)()
+	{
+		mixin("import controllers.%s;".format(resourceName));
+		resource!(mixin(resourceName.capitalize ~ "Controller"))("/" ~ resourceName ~ "/");
 
 		return this;
 	}
@@ -37,6 +63,30 @@ class Router
 
 		listenHTTP(settings, vibeRouter);
 	}
+}
+
+string joinPath(string[] pathParts)
+{
+	return pathParts.join("/");
+}
+
+string normalizePath(string path)
+{
+	return path.chomp("/");
+}
+
+
+auto makeResourceRequestHandler(string action, ControllerT : Controller)()
+{
+	void handle(HTTPServerRequest req, HTTPServerResponse res)
+	{
+		auto controller = new ControllerT;
+		auto request = Request(req);
+		auto response = Response(res);
+		mixin(q{controller.%s(request, response);}.format(action));
+	}
+
+	return &handle;
 }
 
 auto makeRequestHandler(Handler)(Handler handler)
