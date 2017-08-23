@@ -1,0 +1,10 @@
+name "derail"
+description "derail"
+authors "Irenej Marc"
+copyright "Copyright © 2017, Irenej Marc"
+license "MIT"
+
+targetType "library"
+targetname "derail"
+
+dependency "vibe-d" version="~>0.8.1-rc.3"
