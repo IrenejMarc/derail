@@ -37,13 +37,53 @@ class Router
 		import std.traits : hasMember;
 		string memberPath = joinPath([pathPrefix.normalizePath, ":id"]);
 
+		// GET, on collection
 		static if (hasMember!(ControllerT, "index"))
-			vibeRouter.get(pathPrefix, makeResourceRequestHandler!("index", ControllerT));
+			vibeRouter.get(
+					pathPrefix,
+					makeResourceRequestHandler!("index", ControllerT)
+			);
 
+		// POST, on collection
+		static if (hasMember!(ControllerT, "create"))
+			vibeRouter.post(
+					joinPath([pathPrefix, "new"]),
+					makeResourceRequestHandler!("create", ControllerT)
+			);
+
+		// GET /new, on collection
+		static if (hasMember!(ControllerT, "build"))
+			vibeRouter.post(
+					pathPrefix,
+					makeResourceRequestHandler!("build", ControllerT)
+			);
+
+		// GET request, on member
 		static if (hasMember!(ControllerT, "show"))
+			vibeRouter.get(
+					memberPath,
+					makeResourceRequestHandler!("show", ControllerT)
+			);
+
+		// PUT and PATCH requests, on member
+		static if (hasMember!(ControllerT, "update"))
 		{
-			vibeRouter.get(memberPath, makeResourceRequestHandler!("show", ControllerT));
+			vibeRouter.put(
+					memberPath,
+					makeResourceRequestHandler!("update", ControllerT)
+			);
+			vibeRouter.patch(
+					memberPath,
+					makeResourceRequestHandler!("update", ControllerT)
+			);
 		}
+
+		// DELETE request, on member
+		static if (hasMember!(ControllerT, "destroy"))
+			vibeRouter.delete_(
+					memberPath,
+					makeResourceRequestHandler!("destroy", ControllerT)
+			);
 
 		return this;
 	}
@@ -80,13 +120,8 @@ auto makeResourceRequestHandler(string action, ControllerT : Controller)()
 {
 	void handle(HTTPServerRequest req, HTTPServerResponse res)
 	{
-		auto params = dictionaryToAA(req.params);
-
 		auto controller = new ControllerT;
-		controller.action = action;
-		controller.params = params;
-		controller.request = Request(req);
-		controller.response = Response(res);
+		controller.initialize(action, Request(req), Response(res));
 
 		mixin(q{controller.%s();}.format(action));
 	}
@@ -104,14 +139,3 @@ auto makeRequestHandler(Handler)(Handler handler)
 	return &requestHandler;
 }
 
-string[string] dictionaryToAA(T)(T dictionary)
-{
-	string[string] result;
-
-	foreach (key, value; dictionary.byKeyValue)
-	{
-		result[key] = value;
-	}
-
-	return result;
-}
