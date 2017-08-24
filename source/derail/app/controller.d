@@ -25,13 +25,6 @@ class Controller
 
 	protected
 	{
-		void render(string caller = __FUNCTION__)(int status = 200)
-		{
-			enum action = caller.split(".")[$ - 1];
-
-			render!(action, caller)(status);
-		}
-
 		void render(string templateName, string caller = __FUNCTION__)(int status = 200)
 		{
 			import diet.html : compileHTMLDietFile;
@@ -45,6 +38,19 @@ class Controller
 			compileHTMLDietFile!templateFile(output);
 
 			response.writeBody(output.data, status, "text/html");
+		}
+		
+		void renderJson(T)(T json)
+		{
+			import vibe.data.json : serializeToJson;
+
+			response.writeJsonBody(json.serializeToJson());
+		}
+
+		void format(string acceptFormat, string caller = __FUNCTION__)(void delegate() dg)
+		{
+			if (request.headers["Accept"] == acceptFormat)
+				dg();
 		}
 	}
 
