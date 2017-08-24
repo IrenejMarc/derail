@@ -47,14 +47,14 @@ class Router
 		// POST, on collection
 		static if (hasMember!(ControllerT, "create"))
 			vibeRouter.post(
-					joinPath([pathPrefix, "new"]),
+					pathPrefix,
 					makeResourceRequestHandler!("create", ControllerT)
 			);
 
 		// GET /new, on collection
 		static if (hasMember!(ControllerT, "build"))
 			vibeRouter.post(
-					pathPrefix,
+					joinPath([pathPrefix.normalizePath, "new"]),
 					makeResourceRequestHandler!("build", ControllerT)
 			);
 
