@@ -1,11 +1,16 @@
 module derail.app.controller;
 
 import derail.core.http;
+import derail.support.arrays;
+
+alias FormatHandler = void delegate();
 
 class Controller
 {
-	import std.string;
-	import std.array;
+	private
+	{
+		FormatHandler[string] formatHandlers;
+	}
 
 	protected
 	{
@@ -23,21 +28,39 @@ class Controller
 		this.params = convertParams(request.params);
 	}
 
+	void finalize()
+	{
+		import derail.exceptions;
+		import std.string : split;
+
+		string acceptHeader = request.headers["Accept"];
+		string[] formats = acceptHeader.split(",");
+
+		foreach (string format; formats)
+		{
+			auto handler = format in formatHandlers;
+
+			if (handler is null)
+				continue;
+
+			return (*handler)();
+		}
+
+		throw new UnsupportedFormatException("Unsupported format(s): " ~ acceptHeader);
+	}
+
 	protected
 	{
-		void render(string templateName, string caller = __FUNCTION__)(int status = 200)
+		void render(string templateName, string layout = "application", string caller = __FUNCTION__)(int status = 200)
 		{
-			import diet.html : compileHTMLDietFile;
 
-			// This is slightly ugly and requires us to always keep controllers in
-			// "controllers.pluralname" module, maybe get a better solution.
-			enum templatePrefix = caller.split(".")[1];
-			enum templateFile = templatePrefix ~ "/" ~ templateName ~ ".dt";
+			import derail.web.rendering;
 
-			auto output = Appender!string();
-			compileHTMLDietFile!templateFile(output);
-
-			response.writeBody(output.data, status, "text/html");
+			response.writeBody(
+					renderLayout!(templateName, layout, caller),
+					status,
+					"text/html"
+			);
 		}
 		
 		void renderJson(T)(T json)
@@ -47,10 +70,20 @@ class Controller
 			response.writeJsonBody(json.serializeToJson());
 		}
 
-		void format(string acceptFormat, string caller = __FUNCTION__)(void delegate() dg)
+		void format(string acceptFormat, string caller = __FUNCTION__)(FormatHandler formatHandler)
 		{
-			if (request.headers["Accept"] == acceptFormat)
-				dg();
+			formatHandlers[acceptFormat] = formatHandler;
+		}
+
+		@property string resourceName()
+		{
+			import std.string : split, toLower, chomp;
+
+			string controllerName = this.classinfo.name;
+			return controllerName
+				.split(".").last
+				.chomp("Controller")
+				.toLower;
 		}
 	}
 

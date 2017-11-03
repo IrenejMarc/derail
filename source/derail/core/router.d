@@ -1,12 +1,13 @@
 module derail.core.router;
 
-import std.string;
+import std.string : format, capitalize;
 
 import vibe.http.router : URLRouter;
 import vibe.http.server;
 
 import derail.app.controller;
 import derail.core.http;
+import derail.support.paths;
 
 class Router
 {
@@ -32,6 +33,28 @@ class Router
 		return this;
 	}
 
+	Router get(string path, string handler)
+	{
+
+		return this;
+	}
+
+	Router staticFiles(string prefix)
+	{
+		import vibe.http.fileserver : HTTPFileServerSettings, serveStaticFiles;
+
+		auto fsettings = new HTTPFileServerSettings;
+		fsettings.serverPathPrefix = "%s/".format(prefix);
+
+		vibeRouter.get(
+				"*",
+				serveStaticFiles("./%s/".format(prefix), fsettings)
+		);
+		
+
+		return this;
+	}
+
 	Router resource(ControllerT : Controller)(string pathPrefix)
 	{
 		import std.traits : hasMember;
@@ -53,7 +76,7 @@ class Router
 
 		// GET /new, on collection
 		static if (hasMember!(ControllerT, "build"))
-			vibeRouter.post(
+			vibeRouter.get(
 					joinPath([pathPrefix.normalizePath, "new"]),
 					makeResourceRequestHandler!("build", ControllerT)
 			);
@@ -105,17 +128,6 @@ class Router
 	}
 }
 
-string joinPath(string[] pathParts)
-{
-	return pathParts.join("/");
-}
-
-string normalizePath(string path)
-{
-	return path.chomp("/");
-}
-
-
 auto makeResourceRequestHandler(string action, ControllerT : Controller)()
 {
 	void handle(HTTPServerRequest req, HTTPServerResponse res)
@@ -124,6 +136,7 @@ auto makeResourceRequestHandler(string action, ControllerT : Controller)()
 		controller.initialize(action, Request(req), Response(res));
 
 		mixin(q{controller.%s();}.format(action));
+		controller.finalize();
 	}
 
 	return &handle;
