@@ -34,9 +34,11 @@ string renderToString(string templateName, string caller)()
 	return output.data;
 }
 
-auto makeOutlet(string templateName, string caller)()
+alias OutletDelegateType = const string delegate();
+
+OutletDelegateType makeOutlet(string templateName, string caller)()
 {
-	return () => {
+	@property const string outlet() {
 		enum templatePrefix = resourceNameFromCaller!(caller);
 		enum templateFile = templatePrefix ~ "/" ~ templateName ~ ".dt";
 
@@ -44,7 +46,9 @@ auto makeOutlet(string templateName, string caller)()
 		compileHTMLDietFile!(templateFile, partial)(output);
 
 		return output.data;
-	};
+	}
+
+	return &outlet;
 }
 
 string partial(string partialName)()
